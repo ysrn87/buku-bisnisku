@@ -9,22 +9,37 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role ?? "";
 
-  const isAuthPage  = nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
-  const isAdminPage = nextUrl.pathname.startsWith("/admin");
+  const isRootPage   = nextUrl.pathname === "/"; // 1. Track the root page
+  const isAuthPage   = nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
+  const isAdminPage  = nextUrl.pathname.startsWith("/admin");
   const isMemberPage = nextUrl.pathname.startsWith("/member");
 
+  // 2. Handle Root Page Redirects
+  if (isRootPage) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL("/login", nextUrl)); // Send guests to login
+    }
+    if (role === "ADMINISTRATOR" || role === "MANAGER") {
+      return NextResponse.redirect(new URL("/admin", nextUrl));
+    }
+    return NextResponse.redirect(new URL("/member", nextUrl));
+  }
+
+  // Handle Auth Pages (Login / Register)
   if (isAuthPage && isLoggedIn) {
     if (role === "ADMINISTRATOR" || role === "MANAGER")
       return NextResponse.redirect(new URL("/admin", nextUrl));
     return NextResponse.redirect(new URL("/member", nextUrl));
   }
 
+  // Handle Admin Pages
   if (isAdminPage) {
     if (!isLoggedIn) return NextResponse.redirect(new URL("/login", nextUrl));
     if (role !== "ADMINISTRATOR" && role !== "MANAGER")
       return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
+  // Handle Member Pages
   if (isMemberPage && !isLoggedIn)
     return NextResponse.redirect(new URL("/login", nextUrl));
 
