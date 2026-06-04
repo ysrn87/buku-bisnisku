@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String?   @unique
+  password  String
+  name      String
+  phone     String    @unique
+  birthday  DateTime?
+  photoUrl  String?
+  role      Role      @default(MEMBER)
+  points    Int       @default(0)
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  createdProducts  Product[]      @relation("CreatedBy")
+  updatedProducts  Product[]      @relation("UpdatedBy")
+  cashierSales     Sale[]         @relation("Cashier")
+  customerSales    Sale[]         @relation("Customer")
+  pointsHistory    PointHistory[]
+  cashflows        Cashflow[]
+
+  @@map("users")
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  sku         String      @unique
+  type        ProductType @default(READY_STOCK)
+  isActive    Boolean     @default(true)
+  createdById String
+  updatedById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  variants  ProductVariant[]
+  createdBy User             @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedBy User?            @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  sku       String   @unique
+  price     Decimal  @default(0) @db.Decimal(10, 2)
+  cost      Decimal  @default(0) @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  lowStock  Int      @default(10)
+  isActive  Boolean  @default(true)
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@map("product_variants")
+}
+
+model StockMovement {
+  id        String   @id @default(cuid())
+  variantId String
+  quantity  Int
+  type      String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@map("stock_movements")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales Sale[]
+
+  @@map("customers")
+}
+
+model Sale {
+  id                  String        @id @default(cuid())
+  saleNumber          String        @unique
+  customerId          String?
+  nonMemberCustomerId String?
+  cashierId           String
+  subtotal            Decimal       @default(0) @db.Decimal(10, 2)
+  discount            Decimal       @default(0) @db.Decimal(10, 2)
+  tax                 Decimal       @default(0) @db.Decimal(10, 2)
+  ongkir              Decimal       @default(0) @db.Decimal(10, 2)
+  total               Decimal       @default(0) @db.Decimal(10, 2)
+  paymentMethod       String
+  paymentStatus       PaymentStatus @default(PAID)
+  notes               String?
+  pointsEarned        Int           @default(0)
+  pointsRedeemed      Int           @default(0)
+  createdAt           DateTime      @default(now())
+
+  items               SaleItem[]
+  cashier             User          @relation("Cashier", fields: [cashierId], references: [id])
+  customer            User?         @relation("Customer", fields: [customerId], references: [id])
+  nonMemberCustomer   Customer?     @relation(fields: [nonMemberCustomerId], references: [id])
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  saleId    String
+  variantId String
+  quantity  Int
+  price     Decimal @default(0) @db.Decimal(10, 2)
+  subtotal  Decimal @default(0) @db.Decimal(10, 2)
+
+  sale    Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@map("sale_items")
+}
+
+model PointHistory {
+  id          String    @id @default(cuid())
+  userId      String
+  points      Int
+  type        String
+  description String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("point_history")
+}
+
+model Cashflow {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  category    String
+  amount      Decimal         @default(0) @db.Decimal(10, 2)
+  description String
+  date        DateTime        @default(now())
+  createdById String
+  createdAt   DateTime        @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@map("cashflows")
+}
+
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
+
+enum Role {
+  ADMINISTRATOR
+  MANAGER
+  MEMBER
+}
+
+enum ProductType {
+  READY_STOCK
+  PREORDER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  UNPAID
+}
