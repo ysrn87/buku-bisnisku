@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     } else if (type === "ADJUSTMENT") newStock = Number(quantity);
   }
 
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx) => {
     if (!isPreorder) {
       await tx.productVariant.update({ where: { id: variantId }, data: { stock: newStock } });
       await tx.stockMovement.create({ data: { variantId, quantity: Number(quantity), type, notes: notes || null } });
