@@ -40,7 +40,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const sale = await prisma.sale.findUnique({ where: { id }, include: { items: true } });
   if (!sale) return NextResponse.json({ error: "Penjualan tidak ditemukan" }, { status: 404 });
 
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx) => {
     for (const item of sale.items) {
       const variant = await tx.productVariant.findUnique({
         where: { id: item.variantId }, include: { product: true },
