@@ -9,39 +9,40 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role ?? "";
 
-  const isRootPage   = nextUrl.pathname === "/"; // 1. Track the root page
+  // Validasi role — jika role tidak dikenal, anggap tidak login
+  const isAdmin  = role === "ADMINISTRATOR" || role === "MANAGER";
+  const isMember = role === "MEMBER";
+  const validRole = isAdmin || isMember;
+  const authenticated = isLoggedIn && validRole;
+
+  const isRoot       = nextUrl.pathname === "/";
   const isAuthPage   = nextUrl.pathname === "/login" || nextUrl.pathname === "/register";
   const isAdminPage  = nextUrl.pathname.startsWith("/admin");
   const isMemberPage = nextUrl.pathname.startsWith("/member");
 
-  // 2. Handle Root Page Redirects
-  if (isRootPage) {
-    if (!isLoggedIn) {
-      return NextResponse.redirect(new URL("/login", nextUrl)); // Send guests to login
-    }
-    if (role === "ADMINISTRATOR" || role === "MANAGER") {
-      return NextResponse.redirect(new URL("/admin", nextUrl));
-    }
-    return NextResponse.redirect(new URL("/member", nextUrl));
+  // Root → redirect sesuai status login
+  if (isRoot) {
+    if (!authenticated) return NextResponse.redirect(new URL("/login", nextUrl));
+    if (isAdmin)  return NextResponse.redirect(new URL("/admin", nextUrl));
+    if (isMember) return NextResponse.redirect(new URL("/member", nextUrl));
   }
 
-  // Handle Auth Pages (Login / Register)
-  if (isAuthPage && isLoggedIn) {
-    if (role === "ADMINISTRATOR" || role === "MANAGER")
-      return NextResponse.redirect(new URL("/admin", nextUrl));
-    return NextResponse.redirect(new URL("/member", nextUrl));
+  // Halaman auth (login/register) → redirect jika sudah login
+  if (isAuthPage && authenticated) {
+    if (isAdmin)  return NextResponse.redirect(new URL("/admin", nextUrl));
+    if (isMember) return NextResponse.redirect(new URL("/member", nextUrl));
   }
 
-  // Handle Admin Pages
+  // Halaman admin → wajib login + role admin/manager
   if (isAdminPage) {
-    if (!isLoggedIn) return NextResponse.redirect(new URL("/login", nextUrl));
-    if (role !== "ADMINISTRATOR" && role !== "MANAGER")
-      return NextResponse.redirect(new URL("/login", nextUrl));
+    if (!authenticated) return NextResponse.redirect(new URL("/login", nextUrl));
+    if (!isAdmin)       return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  // Handle Member Pages
-  if (isMemberPage && !isLoggedIn)
-    return NextResponse.redirect(new URL("/login", nextUrl));
+  // Halaman member → wajib login
+  if (isMemberPage) {
+    if (!authenticated) return NextResponse.redirect(new URL("/login", nextUrl));
+  }
 
   return NextResponse.next();
 });
